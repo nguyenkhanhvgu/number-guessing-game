@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Number Guessing Game</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎯 Number Guessing Game</h1>
+            <p>I'm thinking of a number between 1 and 100</p>
+        </header>
+
+        <main>
+            <div class="game-info">
+                <div class="attempts">
+                    <span class="label">Attempts:</span>
+                    <span class="count">{{ attempts }}</span>
+                </div>
+            </div>
+
+            <div class="message {{ message_type }}">
+                {{ message }}
+            </div>
+
+            {% if not game_over %}
+            <form action="/guess" method="POST" class="guess-form">
+                <div class="input-group">
+                    <input type="number" 
+                           name="guess" 
+                           min="1" 
+                           max="100" 
+                           placeholder="Enter your guess (1-100)" 
+                           required 
+                           autofocus
+                           class="guess-input">
+                    <button type="submit" class="guess-button">Guess!</button>
+                </div>
+            </form>
+            {% endif %}
+
+            <div class="actions">
+                <a href="/reset" class="new-game-button">🔄 New Game</a>
+            </div>
+        </main>
+
+        <footer>
+            <p>Good luck! 🍀</p>
+        </footer>
+    </div>
+
+    <script>
+        // Auto-focus on input field when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            const input = document.querySelector('.guess-input');
+            if (input) {
+                input.focus();
+            }
+        });
+
+        // Clear input after submission
+        document.querySelector('.guess-form')?.addEventListener('submit', function() {
+            setTimeout(() => {
+                document.querySelector('.guess-input').value = '';
+            }, 100);
+        });
+    </script>
+</body>
+</html>

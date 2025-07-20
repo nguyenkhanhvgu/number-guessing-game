@@ -1,0 +1,16 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Run Number Guessing Game",
+			"type": "shell",
+			"command": "C:/Users/Khoa/Documents/Khanh' Github Copilot/Number Guessing game/.venv/Scripts/python.exe",
+			"args": [
+				"app.py"
+			],
+			"group": "build",
+			"isBackground": true,
+			"problemMatcher": []
+		}
+	]
+}
