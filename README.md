@@ -16,7 +16,8 @@ A sophisticated web-based number guessing game built with Pyt### Security Featur
 
 ## 🎮 Enhanced Game Features
 
-- **🔐 User Authentication**: Secure registration and login system
+- **🔐 Multiple Login Options**: Traditional registration or Facebook OAuth login
+- **📱 Facebook Integration**: Login with Facebook account, import profile picture
 - **📊 Score Tracking**: All your games are saved to a database
 - **🏆 Leaderboards**: Compete with other players for the best scores
 - **📈 Personal Statistics**: Track your improvement over time
@@ -24,13 +25,16 @@ A sophisticated web-based number guessing game built with Pyt### Security Featur
 - **💾 Persistent Sessions**: Your progress is never lost
 - **🔒 Secure Database**: SQLite with proper password hashing
 - **📱 Responsive Design**: Works perfectly on all devices
+- **📤 Social Sharing**: Share achievements on Facebook
 
 ## 🆕 New Features Added
 
 ### User System
-- **Registration**: Create your unique player account
-- **Login/Logout**: Secure session management
-- **Profile Page**: View your personal statistics and game history
+- **Multiple Registration Options**: Traditional email/password or Facebook OAuth
+- **Facebook Login**: One-click login with Facebook account
+- **Profile Pictures**: Automatic import from Facebook profiles
+- **Account Linking**: Link existing accounts with Facebook login
+- **Secure Sessions**: Both traditional and OAuth session management
 
 ### Database Integration
 - **Score Storage**: Every completed game is saved
@@ -55,6 +59,7 @@ A sophisticated web-based number guessing game built with Pyt### Security Featur
 ### Prerequisites
 - Python 3.7 or higher
 - pip (Python package installer)
+- Facebook App ID and Secret (for Facebook login - see FACEBOOK_SETUP.md)
 
 ### Installation & Setup
 
@@ -69,25 +74,34 @@ A sophisticated web-based number guessing game built with Pyt### Security Featur
    pip install -r requirements.txt
    ```
 
-3. **Run the application**
+3. **Configure Facebook OAuth (Optional)**
+   ```bash
+   # Set environment variables for Facebook login
+   export FACEBOOK_OAUTH_CLIENT_ID=your_facebook_app_id
+   export FACEBOOK_OAUTH_CLIENT_SECRET=your_facebook_app_secret
+   # See FACEBOOK_SETUP.md for detailed instructions
+   ```
+
+4. **Run the application**
    ```bash
    python app.py
    ```
 
-4. **Open your browser**
+5. **Open your browser**
    - Go to `http://localhost:5000`
-   - Register a new account or login
+   - Register a new account, login with existing account, or use Facebook login
    - Start playing and tracking your scores!
 
 ## 🎯 How to Play
 
-1. **Create Account**: Register with a username and password
-2. **Login**: Access your personal game dashboard
+1. **Choose Login Method**: Register with username/password or use Facebook login
+2. **Quick Setup**: Facebook users get instant account creation with profile picture
 3. **Start Playing**: The game generates a random number between 1-100
 4. **Make Guesses**: Enter numbers and receive "too high" or "too low" feedback
 5. **Win the Game**: Find the correct number and save your score
-6. **Track Progress**: View your statistics and compete on leaderboards
-7. **Improve**: Use the performance analysis to get better at the game
+6. **Share Success**: Share your achievements on Facebook
+7. **Track Progress**: View your statistics and compete on leaderboards
+8. **Improve**: Use the performance analysis to get better at the game
 
 ## 📁 Enhanced Project Structure
 
@@ -96,9 +110,10 @@ Number Guessing game/
 ├── app.py                  # Main Flask application with auth & database
 ├── game.db                 # SQLite database (auto-created)
 ├── requirements.txt        # Python dependencies (updated)
+├── FACEBOOK_SETUP.md       # Facebook OAuth configuration guide
 ├── templates/
 │   ├── index.html         # Enhanced game interface
-│   ├── auth.html          # Login/Registration forms
+│   ├── auth.html          # Login/Registration forms with Facebook
 │   ├── leaderboard.html   # Global leaderboards
 │   └── profile.html       # User profile and statistics
 ├── static/

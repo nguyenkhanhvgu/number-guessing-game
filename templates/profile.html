@@ -11,7 +11,12 @@
         <div class="nav-container">
             <div class="nav-brand">🎯 Number Guessing Game</div>
             <div class="nav-menu">
-                <span class="nav-user">Welcome, {{ current_user.username }}!</span>
+                <div class="nav-user">
+                    {% if current_user.profile_picture %}
+                    <img src="{{ current_user.profile_picture }}" alt="Profile" class="profile-pic">
+                    {% endif %}
+                    <span>Welcome, {{ current_user.username }}!</span>
+                </div>
                 <a href="{{ url_for('index') }}" class="nav-link">🎮 Play Game</a>
                 <a href="{{ url_for('leaderboard') }}" class="nav-link">🏆 Leaderboard</a>
                 <a href="{{ url_for('logout') }}" class="nav-link">🚪 Logout</a>
@@ -21,8 +26,20 @@
 
     <div class="container">
         <header>
-            <h1>👤 {{ current_user.username }}'s Profile</h1>
-            <p>Your gaming statistics and history</p>
+            <div class="profile-header">
+                {% if current_user.profile_picture %}
+                <img src="{{ current_user.profile_picture }}" alt="Profile Picture" class="profile-picture-large">
+                {% endif %}
+                <div class="profile-info">
+                    <h1>👤 {{ current_user.username }}'s Profile</h1>
+                    <p>Your gaming statistics and history</p>
+                    {% if current_user.facebook_id %}
+                    <div class="facebook-connected">
+                        <span class="facebook-badge">📘 Connected with Facebook</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
         </header>
 
         <div class="profile-stats">

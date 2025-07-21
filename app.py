@@ -5,6 +5,10 @@ from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SubmitField
 from wtforms.validators import DataRequired, Length, EqualTo
 from werkzeug.security import generate_password_hash, check_password_hash
+from flask_dance.contrib.facebook import make_facebook_blueprint, facebook
+from flask_dance.consumer.storage.sqla import OAuthConsumerMixin, SQLAlchemyStorage
+from flask_dance.consumer import oauth_authorized
+from sqlalchemy.orm.exc import NoResultFound
 from datetime import datetime
 import random
 import os
@@ -13,6 +17,10 @@ import urllib.parse
 app = Flask(__name__)
 app.secret_key = 'number-guessing-game-secret-key-2025-enhanced'
 
+# Facebook OAuth configuration
+app.config['FACEBOOK_OAUTH_CLIENT_ID'] = os.environ.get('FACEBOOK_OAUTH_CLIENT_ID', 'your-facebook-app-id')
+app.config['FACEBOOK_OAUTH_CLIENT_SECRET'] = os.environ.get('FACEBOOK_OAUTH_CLIENT_SECRET', 'your-facebook-app-secret')
+
 # Database configuration
 basedir = os.path.abspath(os.path.dirname(__file__))
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL') or \
@@ -20,6 +28,15 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL') or \
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
+
+# Facebook OAuth blueprint
+facebook_bp = make_facebook_blueprint(
+    client_id=app.config['FACEBOOK_OAUTH_CLIENT_ID'],
+    client_secret=app.config['FACEBOOK_OAUTH_CLIENT_SECRET'],
+    scope="email,public_profile",
+    storage=SQLAlchemyStorage(OAuthConsumerMixin, db.session, user=current_user)
+)
+app.register_blueprint(facebook_bp, url_prefix="/login")
 
 # Login manager setup
 login_manager = LoginManager()
@@ -31,7 +48,10 @@ login_manager.login_message = 'Please log in to play the game!'
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
-    password_hash = db.Column(db.String(120), nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=True)
+    password_hash = db.Column(db.String(120), nullable=True)
+    facebook_id = db.Column(db.String(100), unique=True, nullable=True)
+    profile_picture = db.Column(db.String(200), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     scores = db.relationship('GameScore', backref='player', lazy=True)
     
@@ -39,7 +59,9 @@ class User(UserMixin, db.Model):
         self.password_hash = generate_password_hash(password)
     
     def check_password(self, password):
-        return check_password_hash(self.password_hash, password)
+        if self.password_hash:
+            return check_password_hash(self.password_hash, password)
+        return False
     
     def get_best_score(self):
         best = db.session.query(GameScore).filter_by(user_id=self.id).order_by(GameScore.attempts).first()
@@ -47,6 +69,11 @@ class User(UserMixin, db.Model):
     
     def get_total_games(self):
         return len(self.scores)
+
+class OAuth(OAuthConsumerMixin, db.Model):
+    provider_user_id = db.Column(db.String(256), unique=True, nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey(User.id), nullable=False)
+    user = db.relationship("User")
 
 class GameScore(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -144,6 +171,79 @@ def get_user_achievements(user):
     
     return achievements
 
+# Facebook OAuth handlers
+@oauth_authorized.connect_via(facebook_bp)
+def facebook_logged_in(blueprint, token):
+    if not token:
+        flash("Failed to log in with Facebook.", "error")
+        return False
+
+    resp = blueprint.session.get("/me?fields=id,name,email,picture")
+    if not resp.ok:
+        flash("Failed to fetch user info from Facebook.", "error")
+        return False
+
+    facebook_info = resp.json()
+    facebook_user_id = str(facebook_info["id"])
+
+    # Find this OAuth token in the database, or create it
+    query = OAuth.query.filter_by(
+        provider=blueprint.name,
+        provider_user_id=facebook_user_id,
+    )
+    try:
+        oauth = query.one()
+    except NoResultFound:
+        oauth = OAuth(
+            provider=blueprint.name,
+            provider_user_id=facebook_user_id,
+            token=token,
+        )
+
+    if oauth.user:
+        login_user(oauth.user)
+        flash(f"Welcome back, {oauth.user.username}!", "success")
+    else:
+        # Create a new local user account for this user
+        # Check if user already exists with this email
+        existing_user = None
+        if facebook_info.get("email"):
+            existing_user = User.query.filter_by(email=facebook_info["email"]).first()
+        
+        if existing_user:
+            # Link the existing account with Facebook
+            oauth.user = existing_user
+            existing_user.facebook_id = facebook_user_id
+            if facebook_info.get("email") and not existing_user.email:
+                existing_user.email = facebook_info["email"]
+            if facebook_info.get("picture", {}).get("data", {}).get("url"):
+                existing_user.profile_picture = facebook_info["picture"]["data"]["url"]
+        else:
+            # Create new user
+            username = facebook_info.get("name", f"facebook_user_{facebook_user_id}")
+            # Ensure username is unique
+            base_username = username
+            counter = 1
+            while User.query.filter_by(username=username).first():
+                username = f"{base_username}_{counter}"
+                counter += 1
+            
+            user = User(
+                username=username,
+                email=facebook_info.get("email"),
+                facebook_id=facebook_user_id,
+                profile_picture=facebook_info.get("picture", {}).get("data", {}).get("url")
+            )
+            oauth.user = user
+            db.session.add(user)
+
+        db.session.add(oauth)
+        db.session.commit()
+        login_user(oauth.user)
+        flash(f"Welcome to Number Guessing Game, {oauth.user.username}!", "success")
+
+    return False  # Don't redirect automatically
+
 # Routes
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -182,6 +282,14 @@ def login():
         flash('Invalid username or password', 'error')
     
     return render_template('auth.html', form=form, mode='login')
+
+@app.route('/login/facebook')
+def facebook_login():
+    if not facebook.authorized:
+        return redirect(url_for("facebook.login"))
+    
+    # This should be handled by the oauth_authorized callback
+    return redirect(url_for('index'))
 
 @app.route('/logout')
 @login_required

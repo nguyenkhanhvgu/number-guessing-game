@@ -11,7 +11,12 @@
         <div class="nav-container">
             <div class="nav-brand">🎯 Number Guessing Game</div>
             <div class="nav-menu">
-                <span class="nav-user">Welcome, {{ current_user.username }}!</span>
+                <div class="nav-user">
+                    {% if current_user.profile_picture %}
+                    <img src="{{ current_user.profile_picture }}" alt="Profile" class="profile-pic">
+                    {% endif %}
+                    <span>Welcome, {{ current_user.username }}!</span>
+                </div>
                 <a href="{{ url_for('index') }}" class="nav-link">🎮 Play Game</a>
                 <a href="{{ url_for('profile') }}" class="nav-link">👤 Profile</a>
                 <a href="{{ url_for('logout') }}" class="nav-link">🚪 Logout</a>
