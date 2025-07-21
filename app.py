@@ -23,20 +23,32 @@ app.config['FACEBOOK_OAUTH_CLIENT_SECRET'] = os.environ.get('FACEBOOK_OAUTH_CLIE
 
 # Database configuration
 basedir = os.path.abspath(os.path.dirname(__file__))
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL') or \
+database_url = os.environ.get('DATABASE_URL')
+if database_url and database_url.startswith('postgres://'):
+    database_url = database_url.replace('postgres://', 'postgresql://', 1)
+
+app.config['SQLALCHEMY_DATABASE_URI'] = database_url or \
     'sqlite:///' + os.path.join(basedir, 'game.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_pre_ping': True,
+    'pool_recycle': 300,
+}
 
-db = SQLAlchemy(app)
+db = SQLAlchemy()
+db.init_app(app)
 
 # Facebook OAuth blueprint
 facebook_bp = make_facebook_blueprint(
     client_id=app.config['FACEBOOK_OAUTH_CLIENT_ID'],
     client_secret=app.config['FACEBOOK_OAUTH_CLIENT_SECRET'],
-    scope="email,public_profile",
-    storage=SQLAlchemyStorage(OAuthConsumerMixin, db.session, user=current_user)
+    scope="email,public_profile"
 )
 app.register_blueprint(facebook_bp, url_prefix="/login")
+
+# Configure OAuth storage after db initialization
+def create_oauth_storage():
+    return SQLAlchemyStorage(OAuth, db.session, user=current_user)
 
 # Login manager setup
 login_manager = LoginManager()
@@ -71,9 +83,14 @@ class User(UserMixin, db.Model):
         return len(self.scores)
 
 class OAuth(OAuthConsumerMixin, db.Model):
+    __tablename__ = 'flask_dance_oauth'
+    
     provider_user_id = db.Column(db.String(256), unique=True, nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey(User.id), nullable=False)
     user = db.relationship("User")
+
+# Set up OAuth storage
+facebook_bp.storage = SQLAlchemyStorage(OAuth, db.session, user=current_user)
 
 class GameScore(db.Model):
     id = db.Column(db.Integer, primary_key=True)
