@@ -1,15 +1,35 @@
-# 🎯 Number Guessing Game
+# 🎯 Number Guessing Game - Enhanced with Authentication & Database
 
-A simple and fun web-based number guessing game built with Python Flask. Players try to guess a randomly generated number between 1 and 100, receiving helpful hints along the way!
+A sophisticated web-based number guessing game built with Python Flask, featuring user authentication, score tracking, and competitive leaderboards. Players create accounts, track their progress, and compete with others!
 
-## 🎮 Game Features
+## 🎮 Enhanced Game Features
 
-- **Random Number Generation**: Each game generates a new random number between 1-100
-- **Smart Feedback**: Get hints whether your guess is too high, too low, or correct
-- **Attempt Tracking**: Keep track of how many guesses you've made
-- **Responsive Design**: Works great on desktop and mobile devices
-- **Session Management**: Game state is maintained during your session
-- **Easy Reset**: Start a new game anytime with one click
+- **🔐 User Authentication**: Secure registration and login system
+- **📊 Score Tracking**: All your games are saved to a database
+- **🏆 Leaderboards**: Compete with other players for the best scores
+- **📈 Personal Statistics**: Track your improvement over time
+- **🎯 Performance Analysis**: Get insights and achievement badges
+- **💾 Persistent Sessions**: Your progress is never lost
+- **🔒 Secure Database**: SQLite with proper password hashing
+- **📱 Responsive Design**: Works perfectly on all devices
+
+## 🆕 New Features Added
+
+### User System
+- **Registration**: Create your unique player account
+- **Login/Logout**: Secure session management
+- **Profile Page**: View your personal statistics and game history
+
+### Database Integration
+- **Score Storage**: Every completed game is saved
+- **Game History**: See all your previous attempts and results
+- **Statistics**: Best score, average score, total games played
+
+### Competitive Features
+- **Global Leaderboard**: Top 10 best scores from all players
+- **Player Rankings**: See how you rank against other players
+- **Achievements**: Unlock badges for exceptional performance
+- **Performance Tips**: Get suggestions to improve your game
 
 ## 🚀 Quick Start
 
@@ -37,29 +57,36 @@ A simple and fun web-based number guessing game built with Python Flask. Players
 
 4. **Open your browser**
    - Go to `http://localhost:5000`
-   - Start playing!
+   - Register a new account or login
+   - Start playing and tracking your scores!
 
 ## 🎯 How to Play
 
-1. **Start the Game**: Open the web application in your browser
-2. **Make a Guess**: Enter a number between 1 and 100 in the input field
-3. **Get Feedback**: The game will tell you if your guess is too high, too low, or correct
-4. **Keep Trying**: Continue guessing until you find the correct number
-5. **Celebrate**: See how many attempts it took you to win!
-6. **Play Again**: Click "New Game" to start over with a new number
+1. **Create Account**: Register with a username and password
+2. **Login**: Access your personal game dashboard
+3. **Start Playing**: The game generates a random number between 1-100
+4. **Make Guesses**: Enter numbers and receive "too high" or "too low" feedback
+5. **Win the Game**: Find the correct number and save your score
+6. **Track Progress**: View your statistics and compete on leaderboards
+7. **Improve**: Use the performance analysis to get better at the game
 
-## 📁 Project Structure
+## 📁 Enhanced Project Structure
 
 ```
 Number Guessing game/
-├── app.py                  # Main Flask application
-├── requirements.txt        # Python dependencies
+├── app.py                  # Main Flask application with auth & database
+├── game.db                 # SQLite database (auto-created)
+├── requirements.txt        # Python dependencies (updated)
 ├── templates/
-│   └── index.html         # Game interface template
+│   ├── index.html         # Enhanced game interface
+│   ├── auth.html          # Login/Registration forms
+│   ├── leaderboard.html   # Global leaderboards
+│   └── profile.html       # User profile and statistics
 ├── static/
-│   └── style.css          # Styling and responsive design
+│   └── style.css          # Enhanced styling with auth support
 ├── .github/
 │   └── copilot-instructions.md
+├── DEPLOYMENT.md          # Deployment guide
 └── README.md              # This file
 ```
 
@@ -67,25 +94,41 @@ Number Guessing game/
 
 ### Backend (app.py)
 - **Flask Framework**: Lightweight web framework for Python
-- **Session Management**: Stores game state (target number, attempts, messages)
-- **Route Handlers**: 
-  - `/` - Main game page
-  - `/guess` - Process player guesses (POST)
-  - `/reset` - Start a new game
-- **Input Validation**: Ensures valid number inputs and handles errors
+- **Flask-SQLAlchemy**: Database ORM for managing user data and scores
+- **Flask-Login**: User session management and authentication
+- **Flask-WTF**: Form handling and CSRF protection
+- **SQLite Database**: Lightweight database for storing users and game scores
+- **Password Security**: Werkzeug password hashing for secure authentication
+- **Session Management**: Secure game state and user sessions
+
+### Database Schema
+- **Users Table**: User accounts with hashed passwords
+- **GameScore Table**: Individual game records with attempts and timestamps
+- **Relationships**: Users linked to their game scores
+
+### Route Handlers
+- `/register` - User registration (GET/POST)
+- `/login` - User authentication (GET/POST)
+- `/logout` - User logout
+- `/` - Main game page (login required)
+- `/guess` - Process player guesses (POST, login required)
+- `/reset` - Start new game (login required)
+- `/leaderboard` - Global rankings (login required)
+- `/profile` - User statistics and history (login required)
 
 ### Frontend
-- **HTML Template**: Clean, semantic structure with Jinja2 templating
-- **CSS Styling**: Modern, responsive design with gradient backgrounds
-- **JavaScript**: Enhanced UX with auto-focus and form handling
-- **Responsive Design**: Works on desktop, tablet, and mobile devices
+- **Enhanced Templates**: Multiple HTML templates with Jinja2
+- **Navigation System**: User-friendly navbar with authentication status
+- **Responsive Tables**: Leaderboards and statistics display
+- **Flash Messages**: User feedback for actions and errors
+- **Modern UI**: Enhanced styling with gradients and animations
 
-### Features
-- 🎨 **Beautiful UI**: Modern design with smooth animations
-- 📱 **Mobile Friendly**: Responsive layout for all screen sizes
-- ⚡ **Fast Performance**: Lightweight and optimized
-- 🔒 **Session Security**: Secure session management
-- 🎯 **User Friendly**: Intuitive interface suitable for all ages
+### Security Features
+- � **Password Hashing**: Secure password storage using Werkzeug
+- 🛡️ **CSRF Protection**: Form security with Flask-WTF
+- 🔐 **Login Required**: Protected routes for authenticated users only
+- 🍪 **Secure Sessions**: Flask session management
+- ⚡ **Input Validation**: Form validation and sanitization
 
 ## 🎨 Customization
 

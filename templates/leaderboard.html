@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leaderboard - Number Guessing Game</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">🎯 Number Guessing Game</div>
+            <div class="nav-menu">
+                <span class="nav-user">Welcome, {{ current_user.username }}!</span>
+                <a href="{{ url_for('index') }}" class="nav-link">🎮 Play Game</a>
+                <a href="{{ url_for('profile') }}" class="nav-link">👤 Profile</a>
+                <a href="{{ url_for('logout') }}" class="nav-link">🚪 Logout</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <header>
+            <h1>🏆 Leaderboard</h1>
+            <p>Top players and their best scores</p>
+        </header>
+
+        <div class="leaderboard-section">
+            <h2>🥇 Top 10 Best Scores</h2>
+            <div class="leaderboard-table">
+                <div class="table-header">
+                    <div class="rank">Rank</div>
+                    <div class="player">Player</div>
+                    <div class="score">Attempts</div>
+                    <div class="number">Target Number</div>
+                    <div class="date">Date</div>
+                </div>
+                
+                {% for score, user in top_scores %}
+                <div class="table-row {% if user.id == current_user.id %}current-user{% endif %}">
+                    <div class="rank">
+                        {% if loop.index == 1 %}🥇
+                        {% elif loop.index == 2 %}🥈
+                        {% elif loop.index == 3 %}🥉
+                        {% else %}{{ loop.index }}
+                        {% endif %}
+                    </div>
+                    <div class="player">{{ user.username }}</div>
+                    <div class="score">{{ score.attempts }}</div>
+                    <div class="number">{{ score.target_number }}</div>
+                    <div class="date">{{ score.completed_at.strftime('%m/%d/%Y') }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="leaderboard-section">
+            <h2>📊 Player Rankings (Best Score Per Player)</h2>
+            <div class="leaderboard-table">
+                <div class="table-header">
+                    <div class="rank">Rank</div>
+                    <div class="player">Player</div>
+                    <div class="score">Best Score</div>
+                    <div class="games">Total Games</div>
+                </div>
+                
+                {% for user_stat in user_rankings %}
+                <div class="table-row {% if user_stat.id == current_user.id %}current-user{% endif %}">
+                    <div class="rank">
+                        {% if loop.index == 1 %}🥇
+                        {% elif loop.index == 2 %}🥈
+                        {% elif loop.index == 3 %}🥉
+                        {% else %}{{ loop.index }}
+                        {% endif %}
+                    </div>
+                    <div class="player">{{ user_stat.username }}</div>
+                    <div class="score">{{ user_stat.best_score }}</div>
+                    <div class="games">{{ user_stat.total_games }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="actions">
+            <a href="{{ url_for('index') }}" class="play-button">🎮 Play Game</a>
+            <a href="{{ url_for('profile') }}" class="profile-button">👤 View Profile</a>
+        </div>
+    </div>
+
+    <script>
+        // Highlight current user row
+        document.addEventListener('DOMContentLoaded', function() {
+            const currentUserRows = document.querySelectorAll('.current-user');
+            currentUserRows.forEach(function(row) {
+                row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            });
+        });
+    </script>
+</body>
+</html>

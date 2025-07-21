@@ -3,24 +3,55 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Number Guessing Game</title>
+    <title>Number Guessing Game - {{ current_user.username }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">🎯 Number Guessing Game</div>
+            <div class="nav-menu">
+                <span class="nav-user">Welcome, {{ current_user.username }}!</span>
+                <a href="{{ url_for('leaderboard') }}" class="nav-link">🏆 Leaderboard</a>
+                <a href="{{ url_for('profile') }}" class="nav-link">👤 Profile</a>
+                <a href="{{ url_for('logout') }}" class="nav-link">🚪 Logout</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flash-messages">
+                {% for category, message in messages %}
+                    <div class="flash {{ category }}">{{ message }}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
     <div class="container">
         <header>
             <h1>🎯 Number Guessing Game</h1>
-            <p>I'm thinking of a number between 1 and 100 (bynguyenkhanhvgu)</p>
+            <p>I'm thinking of a number between 1 and 100</p>
         </header>
 
-        <main>
-            <div class="game-info">
-                <div class="attempts">
-                    <span class="label">Attempts:</span>
-                    <span class="count">{{ attempts }}</span>
-                </div>
+        <div class="user-stats">
+            <div class="stat-card">
+                <div class="stat-number">{{ attempts }}</div>
+                <div class="stat-label">Current Attempts</div>
             </div>
+            <div class="stat-card">
+                <div class="stat-number">{{ best_score or 'N/A' }}</div>
+                <div class="stat-label">Best Score</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">{{ total_games }}</div>
+                <div class="stat-label">Games Played</div>
+            </div>
+        </div>
 
+        <main>
             <div class="message {{ message_type }}">
                 {{ message }}
             </div>
@@ -43,11 +74,14 @@
 
             <div class="actions">
                 <a href="/reset" class="new-game-button">🔄 New Game</a>
+                {% if game_over %}
+                <a href="{{ url_for('leaderboard') }}" class="leaderboard-button">🏆 View Leaderboard</a>
+                {% endif %}
             </div>
         </main>
 
         <footer>
-            <p>Good luck! 🍀</p>
+            <p>Good luck, {{ current_user.username }}! 🍀</p>
         </footer>
     </div>
 
@@ -58,6 +92,17 @@
             if (input) {
                 input.focus();
             }
+            
+            // Auto-hide flash messages after 5 seconds
+            const flashMessages = document.querySelectorAll('.flash');
+            flashMessages.forEach(function(message) {
+                setTimeout(function() {
+                    message.style.opacity = '0';
+                    setTimeout(function() {
+                        message.remove();
+                    }, 500);
+                }, 5000);
+            });
         });
 
         // Clear input after submission

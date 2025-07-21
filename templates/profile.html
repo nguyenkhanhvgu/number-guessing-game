@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile - {{ current_user.username }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">🎯 Number Guessing Game</div>
+            <div class="nav-menu">
+                <span class="nav-user">Welcome, {{ current_user.username }}!</span>
+                <a href="{{ url_for('index') }}" class="nav-link">🎮 Play Game</a>
+                <a href="{{ url_for('leaderboard') }}" class="nav-link">🏆 Leaderboard</a>
+                <a href="{{ url_for('logout') }}" class="nav-link">🚪 Logout</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <header>
+            <h1>👤 {{ current_user.username }}'s Profile</h1>
+            <p>Your gaming statistics and history</p>
+        </header>
+
+        <div class="profile-stats">
+            <div class="stat-card large">
+                <div class="stat-number">{{ best_score or 'N/A' }}</div>
+                <div class="stat-label">Best Score</div>
+                <div class="stat-description">Fewest attempts to win</div>
+            </div>
+            <div class="stat-card large">
+                <div class="stat-number">{{ total_games }}</div>
+                <div class="stat-label">Total Games</div>
+                <div class="stat-description">Games completed</div>
+            </div>
+            <div class="stat-card large">
+                <div class="stat-number">{{ "%.1f"|format(avg_score) if avg_score else 'N/A' }}</div>
+                <div class="stat-label">Average Score</div>
+                <div class="stat-description">Average attempts per game</div>
+            </div>
+        </div>
+
+        {% if user_scores %}
+        <div class="profile-section">
+            <h2>📈 Recent Game History</h2>
+            <div class="history-table">
+                <div class="table-header">
+                    <div class="attempts">Attempts</div>
+                    <div class="target">Target</div>
+                    <div class="date">Date</div>
+                    <div class="performance">Performance</div>
+                </div>
+                
+                {% for score in user_scores %}
+                <div class="table-row">
+                    <div class="attempts">
+                        <span class="score-badge {% if score.attempts <= 5 %}excellent{% elif score.attempts <= 10 %}good{% elif score.attempts <= 15 %}average{% else %}needs-improvement{% endif %}">
+                            {{ score.attempts }}
+                        </span>
+                    </div>
+                    <div class="target">{{ score.target_number }}</div>
+                    <div class="date">{{ score.completed_at.strftime('%m/%d/%Y %H:%M') }}</div>
+                    <div class="performance">
+                        {% if score.attempts <= 5 %}
+                            🏆 Excellent
+                        {% elif score.attempts <= 10 %}
+                            🎯 Good
+                        {% elif score.attempts <= 15 %}
+                            📊 Average
+                        {% else %}
+                            📈 Keep Trying
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="profile-section">
+            <h2>🎯 Performance Analysis</h2>
+            <div class="analysis-cards">
+                <div class="analysis-card">
+                    <h3>🏆 Achievements</h3>
+                    <ul>
+                        {% if best_score and best_score <= 3 %}
+                        <li class="achievement">🎯 Sharp Shooter - Won in 3 attempts or less!</li>
+                        {% endif %}
+                        {% if best_score and best_score <= 5 %}
+                        <li class="achievement">🔥 Hot Streak - Won in 5 attempts or less!</li>
+                        {% endif %}
+                        {% if total_games >= 10 %}
+                        <li class="achievement">🎮 Dedicated Player - Played 10+ games</li>
+                        {% endif %}
+                        {% if total_games >= 50 %}
+                        <li class="achievement">🏅 Game Master - Played 50+ games</li>
+                        {% endif %}
+                        {% if not (best_score and best_score <= 5) and total_games < 10 %}
+                        <li class="no-achievement">Keep playing to unlock achievements!</li>
+                        {% endif %}
+                    </ul>
+                </div>
+                
+                <div class="analysis-card">
+                    <h3>💡 Tips for Improvement</h3>
+                    <ul>
+                        <li>🎯 Start with 50 and use binary search strategy</li>
+                        <li>📊 Keep track of your guesses to avoid repetition</li>
+                        <li>🧠 Use logical deduction from previous hints</li>
+                        <li>⚡ The optimal strategy can solve in max 7 attempts</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="profile-section">
+            <div class="no-games">
+                <h2>🎮 No Games Played Yet</h2>
+                <p>Start playing to see your statistics and game history!</p>
+                <a href="{{ url_for('index') }}" class="play-button">🎯 Play Your First Game</a>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="actions">
+            <a href="{{ url_for('index') }}" class="play-button">🎮 Play Again</a>
+            <a href="{{ url_for('leaderboard') }}" class="leaderboard-button">🏆 View Leaderboard</a>
+        </div>
+    </div>
+</body>
+</html>
