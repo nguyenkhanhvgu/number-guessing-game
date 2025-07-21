@@ -291,6 +291,46 @@ header p {
     transform: translateY(-2px);
 }
 
+.share-button {
+    display: inline-block;
+    padding: 12px 25px;
+    background: #1877f2;
+    color: white;
+    text-decoration: none;
+    border: none;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+    font-family: inherit;
+    font-size: 0.9rem;
+}
+
+.share-button:hover {
+    background: #166fe5;
+    transform: translateY(-2px);
+}
+
+.share-button.facebook {
+    background: #1877f2;
+}
+
+.share-btn-small {
+    margin-top: 0.5rem;
+    padding: 6px 12px;
+    background: #1877f2;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.share-btn-small:hover {
+    background: #166fe5;
+}
+
 /* Authentication Styles */
 .auth-container {
     display: flex;
@@ -498,6 +538,77 @@ header p {
     color: #333;
     margin-bottom: 1.5rem;
     text-align: center;
+}
+
+/* Achievements */
+.achievements-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.achievement-card {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border: 2px solid #dee2e6;
+    border-radius: 15px;
+    padding: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.achievement-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(102, 126, 234, 0.2);
+    border-color: #667eea;
+}
+
+.achievement-icon {
+    font-size: 3rem;
+    min-width: 60px;
+    text-align: center;
+}
+
+.achievement-content {
+    flex: 1;
+}
+
+.achievement-content h3 {
+    color: #333;
+    margin-bottom: 0.5rem;
+    font-size: 1.1rem;
+}
+
+.achievement-content p {
+    color: #666;
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+}
+
+.share-achievement-btn {
+    background: #1877f2;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.share-achievement-btn:hover {
+    background: #166fe5;
+}
+
+.no-achievements {
+    text-align: center;
+    padding: 2rem;
+    background: #f8f9fa;
+    border-radius: 15px;
+    color: #666;
+    font-style: italic;
 }
 
 .analysis-cards {

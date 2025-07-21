@@ -1,6 +1,18 @@
 # 🎯 Number Guessing Game - Enhanced with Authentication & Database
 
-A sophisticated web-based number guessing game built with Python Flask, featuring user authentication, score tracking, and competitive leaderboards. Players create accounts, track their progress, and compete with others!
+A sophisticated web-based number guessing game built with Pyt### Security Features
+- 🔒 **Password Hashing**: Secure password storage using Werkzeug
+- 🛡️ **CSRF Protection**: Form security with Flask-WTF
+- 🔐 **Login Required**: Protected routes for authenticated users only
+- 🍪 **Secure Sessions**: Flask session management
+- ⚡ **Input Validation**: Form validation and sanitization
+
+### 📱 Social Features
+- 📤 **Facebook Integration**: Share achievements and scores
+- 🎯 **Dynamic Messages**: Custom share text based on performance
+- 🏆 **Achievement Sharing**: Celebrate milestones with friends
+- 📊 **Leaderboard Sharing**: Challenge others to compete
+- 🔗 **Smart URLs**: Automatic link generation for sharingask, featuring user authentication, score tracking, and competitive leaderboards. Players create accounts, track their progress, and compete with others!
 
 ## 🎮 Enhanced Game Features
 
@@ -30,6 +42,13 @@ A sophisticated web-based number guessing game built with Python Flask, featurin
 - **Player Rankings**: See how you rank against other players
 - **Achievements**: Unlock badges for exceptional performance
 - **Performance Tips**: Get suggestions to improve your game
+
+### 📱 Social Media Integration
+- **Facebook Sharing**: Share your achievements and scores
+- **Achievement Sharing**: Celebrate your milestones with friends
+- **Leaderboard Sharing**: Challenge others to beat your rank
+- **Custom Share Messages**: Dynamic messages based on performance
+- **One-Click Sharing**: Easy social media integration
 
 ## 🚀 Quick Start
 

@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, session, redirect, url_for, flash
+from flask import Flask, render_template, request, session, redirect, url_for, flash, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from flask_wtf import FlaskForm
@@ -8,6 +8,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 import random
 import os
+import urllib.parse
 
 app = Flask(__name__)
 app.secret_key = 'number-guessing-game-secret-key-2025-enhanced'
@@ -69,6 +70,79 @@ class RegisterForm(FlaskForm):
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
+
+# Helper functions for Facebook sharing
+def get_achievement_message(user, score):
+    """Generate achievement message for sharing"""
+    messages = {
+        1: f"🎯 AMAZING! {user.username} guessed the number in just 1 attempt! Perfect shot! 🏆",
+        2: f"🔥 INCREDIBLE! {user.username} nailed it in only 2 attempts! Sharp shooter! 🎯",
+        3: f"⭐ EXCELLENT! {user.username} conquered the number game in 3 attempts! 🌟",
+        4: f"🎉 GREAT JOB! {user.username} solved it in 4 attempts! Getting better! 💪",
+        5: f"👏 WELL DONE! {user.username} cracked the code in 5 attempts! Nice work! 🎮"
+    }
+    
+    if score <= 5:
+        return messages.get(score, f"🎮 {user.username} just won the Number Guessing Game in {score} attempts! Can you beat this score?")
+    else:
+        return f"🎮 {user.username} just completed the Number Guessing Game in {score} attempts! Join the fun and try to beat this score!"
+
+def generate_facebook_share_url(message, url):
+    """Generate Facebook share URL with custom message"""
+    base_url = "https://www.facebook.com/sharer/sharer.php"
+    params = {
+        'u': url,
+        'quote': message,
+        'hashtag': '#NumberGuessingGame'
+    }
+    return f"{base_url}?{urllib.parse.urlencode(params)}"
+
+def get_user_achievements(user):
+    """Get list of user achievements"""
+    achievements = []
+    best_score = user.get_best_score()
+    total_games = user.get_total_games()
+    
+    if best_score:
+        if best_score == 1:
+            achievements.append({
+                'title': '🎯 Perfect Shot',
+                'description': 'Guessed the number in 1 attempt!',
+                'icon': '🏆',
+                'shareable': True
+            })
+        elif best_score <= 3:
+            achievements.append({
+                'title': '🔥 Sharp Shooter',
+                'description': f'Best score: {best_score} attempts',
+                'icon': '🎯',
+                'shareable': True
+            })
+        elif best_score <= 5:
+            achievements.append({
+                'title': '⭐ Number Master',
+                'description': f'Best score: {best_score} attempts',
+                'icon': '🌟',
+                'shareable': True
+            })
+    
+    if total_games >= 10:
+        achievements.append({
+            'title': '🎮 Dedicated Player',
+            'description': f'Played {total_games} games',
+            'icon': '🏅',
+            'shareable': True
+        })
+    
+    if total_games >= 50:
+        achievements.append({
+            'title': '🏆 Game Legend',
+            'description': f'Played {total_games} games!',
+            'icon': '👑',
+            'shareable': True
+        })
+    
+    return achievements
 
 # Routes
 @app.route('/register', methods=['GET', 'POST'])
@@ -157,6 +231,10 @@ def guess():
             db.session.add(score)
             db.session.commit()
             
+            # Generate sharing message
+            session['latest_score'] = session['attempts']
+            session['share_message'] = get_achievement_message(current_user, session['attempts'])
+            
             session['message'] = f"🎉 Congratulations! You guessed it in {session['attempts']} attempts! Score saved!"
             session['message_type'] = "success"
             session['game_over'] = True
@@ -216,12 +294,47 @@ def profile():
         best_score = None
         avg_score = None
     
+    # Get achievements
+    achievements = get_user_achievements(current_user)
+    
     return render_template('profile.html',
                          user_scores=user_scores,
                          best_score=best_score,
                          avg_score=avg_score,
                          total_games=len(user_scores),
+                         achievements=achievements,
                          current_user=current_user)
+
+@app.route('/share/achievement/<achievement_type>')
+@login_required
+def share_achievement(achievement_type):
+    """Generate Facebook share URL for achievements"""
+    base_url = request.url_root.rstrip('/')
+    
+    if achievement_type == 'best_score':
+        best_score = current_user.get_best_score()
+        if best_score:
+            message = get_achievement_message(current_user, best_score)
+            share_url = generate_facebook_share_url(message, f"{base_url}/leaderboard")
+            return jsonify({'share_url': share_url, 'message': message})
+    
+    elif achievement_type == 'total_games':
+        total_games = current_user.get_total_games()
+        message = f"🎮 {current_user.username} has played {total_games} games on the Number Guessing Game! Join the fun and test your skills!"
+        share_url = generate_facebook_share_url(message, base_url)
+        return jsonify({'share_url': share_url, 'message': message})
+    
+    elif achievement_type == 'latest_win':
+        latest_score = GameScore.query.filter_by(user_id=current_user.id).order_by(GameScore.completed_at.desc()).first()
+        if latest_score:
+            message = get_achievement_message(current_user, latest_score.attempts)
+            share_url = generate_facebook_share_url(message, base_url)
+            return jsonify({'share_url': share_url, 'message': message})
+    
+    # Default sharing
+    message = f"🎯 Join {current_user.username} on the Number Guessing Game! Test your logic and compete with friends!"
+    share_url = generate_facebook_share_url(message, base_url)
+    return jsonify({'share_url': share_url, 'message': message})
 
 if __name__ == '__main__':
     import os

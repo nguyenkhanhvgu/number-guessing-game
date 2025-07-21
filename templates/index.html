@@ -76,6 +76,7 @@
                 <a href="/reset" class="new-game-button">🔄 New Game</a>
                 {% if game_over %}
                 <a href="{{ url_for('leaderboard') }}" class="leaderboard-button">🏆 View Leaderboard</a>
+                <button onclick="shareOnFacebook('latest_win')" class="share-button facebook">📱 Share on Facebook</button>
                 {% endif %}
             </div>
         </main>
@@ -111,6 +112,64 @@
                 document.querySelector('.guess-input').value = '';
             }, 100);
         });
+
+        // Facebook sharing function
+        function shareOnFacebook(achievementType) {
+            fetch(`/share/achievement/${achievementType}`)
+                .then(response => response.json())
+                .then(data => {
+                    // Open Facebook share dialog
+                    window.open(data.share_url, 'facebook-share-dialog', 'width=626,height=436');
+                    
+                    // Show success message
+                    showNotification('🎉 Share link generated! Post opened in new window.', 'success');
+                })
+                .catch(error => {
+                    console.error('Error generating share link:', error);
+                    showNotification('❌ Failed to generate share link. Please try again.', 'error');
+                });
+        }
+
+        // Show notification function
+        function showNotification(message, type) {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 15px 20px;
+                border-radius: 8px;
+                color: white;
+                font-weight: 500;
+                z-index: 1000;
+                animation: slideIn 0.3s ease;
+                max-width: 300px;
+                ${type === 'success' ? 'background: #28a745;' : 'background: #dc3545;'}
+            `;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
+        }
+
+        // Add CSS animations
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+            @keyframes slideOut {
+                from { transform: translateX(0); opacity: 1; }
+                to { transform: translateX(100%); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
     </script>
 </body>
 </html>

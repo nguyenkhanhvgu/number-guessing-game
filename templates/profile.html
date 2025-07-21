@@ -30,16 +30,47 @@
                 <div class="stat-number">{{ best_score or 'N/A' }}</div>
                 <div class="stat-label">Best Score</div>
                 <div class="stat-description">Fewest attempts to win</div>
+                {% if best_score %}
+                <button onclick="shareOnFacebook('best_score')" class="share-btn-small">📱 Share</button>
+                {% endif %}
             </div>
             <div class="stat-card large">
                 <div class="stat-number">{{ total_games }}</div>
                 <div class="stat-label">Total Games</div>
                 <div class="stat-description">Games completed</div>
+                {% if total_games > 0 %}
+                <button onclick="shareOnFacebook('total_games')" class="share-btn-small">📱 Share</button>
+                {% endif %}
             </div>
             <div class="stat-card large">
                 <div class="stat-number">{{ "%.1f"|format(avg_score) if avg_score else 'N/A' }}</div>
                 <div class="stat-label">Average Score</div>
                 <div class="stat-description">Average attempts per game</div>
+            </div>
+        </div>
+
+        <div class="profile-section">
+            <h2>🏆 Your Achievements</h2>
+            <div class="achievements-grid">
+                {% if achievements %}
+                    {% for achievement in achievements %}
+                    <div class="achievement-card">
+                        <div class="achievement-icon">{{ achievement.icon }}</div>
+                        <div class="achievement-content">
+                            <h3>{{ achievement.title }}</h3>
+                            <p>{{ achievement.description }}</p>
+                            {% if achievement.shareable %}
+                            <button onclick="shareAchievement('{{ achievement.title }}', '{{ achievement.description }}')" 
+                                    class="share-achievement-btn">📱 Share Achievement</button>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="no-achievements">
+                        <p>🎯 Start playing to unlock achievements!</p>
+                    </div>
+                {% endif %}
             </div>
         </div>
 
@@ -129,5 +160,69 @@
             <a href="{{ url_for('leaderboard') }}" class="leaderboard-button">🏆 View Leaderboard</a>
         </div>
     </div>
+
+    <script>
+        // Facebook sharing functions
+        function shareOnFacebook(achievementType) {
+            fetch(`/share/achievement/${achievementType}`)
+                .then(response => response.json())
+                .then(data => {
+                    window.open(data.share_url, 'facebook-share-dialog', 'width=626,height=436');
+                    showNotification('🎉 Share link generated! Post opened in new window.', 'success');
+                })
+                .catch(error => {
+                    console.error('Error generating share link:', error);
+                    showNotification('❌ Failed to generate share link. Please try again.', 'error');
+                });
+        }
+
+        function shareAchievement(title, description) {
+            const message = `🏆 Achievement Unlocked: ${title}! ${description} Join me on the Number Guessing Game and see if you can beat my score! 🎯`;
+            const shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.origin)}&quote=${encodeURIComponent(message)}&hashtag=%23NumberGuessingGame`;
+            
+            window.open(shareUrl, 'facebook-share-dialog', 'width=626,height=436');
+            showNotification('🎉 Achievement share link opened!', 'success');
+        }
+
+        function showNotification(message, type) {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 15px 20px;
+                border-radius: 8px;
+                color: white;
+                font-weight: 500;
+                z-index: 1000;
+                animation: slideIn 0.3s ease;
+                max-width: 300px;
+                ${type === 'success' ? 'background: #28a745;' : 'background: #dc3545;'}
+            `;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
+        }
+
+        // Add CSS animations
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+            @keyframes slideOut {
+                from { transform: translateX(0); opacity: 1; }
+                to { transform: translateX(100%); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
 </body>
 </html>
