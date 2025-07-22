@@ -6,20 +6,13 @@ from wtforms import StringField, PasswordField, SubmitField
 from wtforms.validators import DataRequired, Length, EqualTo
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_dance.contrib.facebook import make_facebook_blueprint, facebook
-from flask_dance.consumer.storage.sqla import OAuthConsumerMixin, SQLAlchemyStorage
-from flask_dance.consumer import oauth_authorized
-from sqlalchemy.orm.exc import NoResultFound
 from datetime import datetime
 import random
 import os
 import urllib.parse
 
 app = Flask(__name__)
-app.secret_key = 'number-guessing-game-secret-key-2025-enhanced'
-
-# Facebook OAuth configuration
-app.config['FACEBOOK_OAUTH_CLIENT_ID'] = os.environ.get('FACEBOOK_OAUTH_CLIENT_ID', 'your-facebook-app-id')
-app.config['FACEBOOK_OAUTH_CLIENT_SECRET'] = os.environ.get('FACEBOOK_OAUTH_CLIENT_SECRET', 'your-facebook-app-secret')
+app.secret_key = os.environ.get('SECRET_KEY', 'number-guessing-game-secret-key-2025-enhanced')
 
 # Database configuration
 basedir = os.path.abspath(os.path.dirname(__file__))
@@ -30,30 +23,24 @@ if database_url and database_url.startswith('postgres://'):
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url or \
     'sqlite:///' + os.path.join(basedir, 'game.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-    'pool_pre_ping': True,
-    'pool_recycle': 300,
-}
 
-db = SQLAlchemy()
-db.init_app(app)
+# Initialize SQLAlchemy
+db = SQLAlchemy(app)
 
-# Facebook OAuth blueprint
+# Facebook OAuth configuration
 facebook_bp = make_facebook_blueprint(
-    client_id=app.config['FACEBOOK_OAUTH_CLIENT_ID'],
-    client_secret=app.config['FACEBOOK_OAUTH_CLIENT_SECRET'],
+    client_id=os.environ.get('FACEBOOK_OAUTH_CLIENT_ID'),
+    client_secret=os.environ.get('FACEBOOK_OAUTH_CLIENT_SECRET'),
     scope="email,public_profile"
 )
 app.register_blueprint(facebook_bp, url_prefix="/login")
 
-# Configure OAuth storage after db initialization
-def create_oauth_storage():
-    return SQLAlchemyStorage(OAuth, db.session, user=current_user)
-
+# Login manager setup
+login_manager = LoginManager()
 # Login manager setup
 login_manager = LoginManager()
 login_manager.init_app(app)
-login_manager.login_view = 'login'
+login_manager.login_view = 'auth'
 login_manager.login_message = 'Please log in to play the game!'
 
 # Database Models
@@ -81,16 +68,32 @@ class User(UserMixin, db.Model):
     
     def get_total_games(self):
         return len(self.scores)
-
-class OAuth(OAuthConsumerMixin, db.Model):
-    __tablename__ = 'flask_dance_oauth'
     
-    provider_user_id = db.Column(db.String(256), unique=True, nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey(User.id), nullable=False)
-    user = db.relationship("User")
+    def get_achievements(self):
+        best_score = self.get_best_score()
+        total_games = self.get_total_games()
+        achievements = []
+        
+        if best_score == 1:
+            achievements.append({"name": "Perfect Shot", "description": "Guessed the number in 1 attempt!", "icon": "🎯"})
+        if best_score and best_score <= 3:
+            achievements.append({"name": "Sharp Shooter", "description": "Guessed the number in 3 or fewer attempts!", "icon": "⭐"})
+        if best_score and best_score <= 5:
+            achievements.append({"name": "Good Guesser", "description": "Guessed the number in 5 or fewer attempts!", "icon": "👍"})
+        if total_games >= 10:
+            achievements.append({"name": "Dedicated Player", "description": "Played 10 or more games!", "icon": "🏆"})
+        if total_games >= 50:
+            achievements.append({"name": "Game Master", "description": "Played 50 or more games!", "icon": "👑"})
+            
+        return achievements
 
-# Set up OAuth storage
-facebook_bp.storage = SQLAlchemyStorage(OAuth, db.session, user=current_user)
+# Simple OAuth storage model
+class FacebookOAuth(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    facebook_user_id = db.Column(db.String(100), unique=True, nullable=False)
+    token = db.Column(db.Text, nullable=True)
+    user = db.relationship('User', backref='facebook_oauth')
 
 class GameScore(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -188,40 +191,88 @@ def get_user_achievements(user):
     
     return achievements
 
-# Facebook OAuth handlers
-@oauth_authorized.connect_via(facebook_bp)
-def facebook_logged_in(blueprint, token):
-    if not token:
-        flash("Failed to log in with Facebook.", "error")
-        return False
+# Simple OAuth storage model
+class FacebookOAuth(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    facebook_user_id = db.Column(db.String(100), unique=True, nullable=False)
+    token = db.Column(db.Text, nullable=True)
+    user = db.relationship('User', backref='facebook_oauth')
 
-    resp = blueprint.session.get("/me?fields=id,name,email,picture")
+class GameScore(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    attempts = db.Column(db.Integer, nullable=False)
+    target_number = db.Column(db.Integer, nullable=False)
+    completed_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+# User loader for Flask-Login
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
+
+# Utility functions
+def get_achievement_message(user, attempts):
+    """Generate achievement messages based on score"""
+    if attempts == 1:
+        return f"🎯 AMAZING! {user.username} guessed the number in just 1 attempt! Perfect shot! 🏆"
+    elif attempts <= 3:
+        return f"⭐ EXCELLENT! {user.username} conquered the number game in {attempts} attempts! 🌟"
+    elif attempts <= 5:
+        return f"👏 GREAT JOB! {user.username} solved it in {attempts} attempts! 🎲"
+    else:
+        return f"🎯 {user.username} is mastering the Number Guessing Game! Latest score: {attempts} attempts"
+
+def generate_facebook_share_url(message, url):
+    """Generate Facebook share URL"""
+    base_url = "https://www.facebook.com/sharer/sharer.php"
+    params = {
+        'u': url,
+        'quote': message
+    }
+    return f"{base_url}?{urllib.parse.urlencode(params)}"
+
+def get_user_achievements(user):
+    """Get user achievements for display"""
+    return user.get_achievements()
+
+# Forms
+class LoginForm(FlaskForm):
+    username = StringField('Username', validators=[DataRequired(), Length(min=3, max=20)])
+    password = PasswordField('Password', validators=[DataRequired()])
+    submit = SubmitField('Login')
+
+class RegisterForm(FlaskForm):
+    username = StringField('Username', validators=[DataRequired(), Length(min=4, max=20)])
+    password = PasswordField('Password', validators=[DataRequired(), Length(min=6)])
+    confirm_password = PasswordField('Confirm Password', 
+                                   validators=[DataRequired(), EqualTo('password')])
+    submit = SubmitField('Register')
+
+# Facebook OAuth login route
+@app.route('/login/facebook')
+def facebook_login():
+    if not facebook.authorized:
+        return redirect(url_for("facebook.login"))
+    
+    # Get Facebook user info
+    resp = facebook.get("/me?fields=id,name,email,picture")
     if not resp.ok:
-        flash("Failed to fetch user info from Facebook.", "error")
-        return False
-
+        flash('Failed to fetch user info from Facebook', 'error')
+        return redirect(url_for('auth'))
+    
     facebook_info = resp.json()
     facebook_user_id = str(facebook_info["id"])
-
-    # Find this OAuth token in the database, or create it
-    query = OAuth.query.filter_by(
-        provider=blueprint.name,
-        provider_user_id=facebook_user_id,
-    )
-    try:
-        oauth = query.one()
-    except NoResultFound:
-        oauth = OAuth(
-            provider=blueprint.name,
-            provider_user_id=facebook_user_id,
-            token=token,
-        )
-
-    if oauth.user:
-        login_user(oauth.user)
-        flash(f"Welcome back, {oauth.user.username}!", "success")
+    
+    # Check if this Facebook account is already linked
+    oauth_record = FacebookOAuth.query.filter_by(facebook_user_id=facebook_user_id).first()
+    
+    if oauth_record and oauth_record.user:
+        # User exists, log them in
+        login_user(oauth_record.user)
+        flash(f'Welcome back, {oauth_record.user.username}!', 'success')
+        return redirect(url_for('home'))
     else:
-        # Create a new local user account for this user
         # Check if user already exists with this email
         existing_user = None
         if facebook_info.get("email"):
@@ -229,12 +280,19 @@ def facebook_logged_in(blueprint, token):
         
         if existing_user:
             # Link the existing account with Facebook
-            oauth.user = existing_user
             existing_user.facebook_id = facebook_user_id
             if facebook_info.get("email") and not existing_user.email:
                 existing_user.email = facebook_info["email"]
             if facebook_info.get("picture", {}).get("data", {}).get("url"):
                 existing_user.profile_picture = facebook_info["picture"]["data"]["url"]
+            
+            # Create OAuth record
+            oauth_record = FacebookOAuth(
+                user_id=existing_user.id,
+                facebook_user_id=facebook_user_id
+            )
+            db.session.add(oauth_record)
+            user_to_login = existing_user
         else:
             # Create new user
             username = facebook_info.get("name", f"facebook_user_{facebook_user_id}")
@@ -251,215 +309,244 @@ def facebook_logged_in(blueprint, token):
                 facebook_id=facebook_user_id,
                 profile_picture=facebook_info.get("picture", {}).get("data", {}).get("url")
             )
-            oauth.user = user
             db.session.add(user)
+            db.session.flush()  # Get the user ID
+            
+            # Create OAuth record
+            oauth_record = FacebookOAuth(
+                user_id=user.id,
+                facebook_user_id=facebook_user_id
+            )
+            db.session.add(oauth_record)
+            user_to_login = user
 
-        db.session.add(oauth)
         db.session.commit()
-        login_user(oauth.user)
-        flash(f"Welcome to Number Guessing Game, {oauth.user.username}!", "success")
-
-    return False  # Don't redirect automatically
+        login_user(user_to_login)
+        flash(f'Welcome to Number Guessing Game, {user_to_login.username}!', 'success')
+        return redirect(url_for('home'))
 
 # Routes
-@app.route('/register', methods=['GET', 'POST'])
-def register():
+@app.route('/')
+def home():
     if current_user.is_authenticated:
-        return redirect(url_for('index'))
-    
-    form = RegisterForm()
-    if form.validate_on_submit():
-        user = User.query.filter_by(username=form.username.data).first()
-        if user:
-            flash('Username already exists. Please choose a different one.', 'error')
-            return render_template('auth.html', form=form, mode='register')
-        
-        user = User(username=form.username.data)
-        user.set_password(form.password.data)
-        db.session.add(user)
-        db.session.commit()
-        
-        flash('Registration successful! Please log in.', 'success')
-        return redirect(url_for('login'))
-    
-    return render_template('auth.html', form=form, mode='register')
+        return render_template('index.html', user=current_user)
+    return redirect(url_for('auth'))
 
-@app.route('/login', methods=['GET', 'POST'])
-def login():
+@app.route('/auth', methods=['GET', 'POST'])
+def auth():
     if current_user.is_authenticated:
-        return redirect(url_for('index'))
+        return redirect(url_for('home'))
     
-    form = LoginForm()
-    if form.validate_on_submit():
-        user = User.query.filter_by(username=form.username.data).first()
-        if user and user.check_password(form.password.data):
+    login_form = LoginForm()
+    register_form = RegisterForm()
+    
+    if login_form.validate_on_submit() and 'login' in request.form:
+        user = User.query.filter_by(username=login_form.username.data).first()
+        if user and user.password_hash and check_password_hash(user.password_hash, login_form.password.data):
             login_user(user)
             flash(f'Welcome back, {user.username}!', 'success')
-            return redirect(url_for('index'))
+            return redirect(url_for('home'))
         flash('Invalid username or password', 'error')
     
-    return render_template('auth.html', form=form, mode='login')
-
-@app.route('/login/facebook')
-def facebook_login():
-    if not facebook.authorized:
-        return redirect(url_for("facebook.login"))
+    if register_form.validate_on_submit() and 'register' in request.form:
+        if User.query.filter_by(username=register_form.username.data).first():
+            flash('Username already exists', 'error')
+        else:
+            user = User(
+                username=register_form.username.data,
+                password_hash=generate_password_hash(register_form.password.data)
+            )
+            db.session.add(user)
+            db.session.commit()
+            login_user(user)
+            flash(f'Welcome to the Number Guessing Game, {user.username}!', 'success')
+            return redirect(url_for('home'))
     
-    # This should be handled by the oauth_authorized callback
-    return redirect(url_for('index'))
+    return render_template('auth.html', login_form=login_form, register_form=register_form)
 
 @app.route('/logout')
 @login_required
 def logout():
     logout_user()
-    flash('You have been logged out successfully!', 'info')
-    return redirect(url_for('login'))
+    flash('You have been logged out successfully', 'info')
+    return redirect(url_for('auth'))
 
-@app.route('/')
+@app.route('/game')
 @login_required
-def index():
+def game():
     if 'target_number' not in session:
         session['target_number'] = random.randint(1, 100)
         session['attempts'] = 0
         session['game_over'] = False
-        session['message'] = f"Welcome {current_user.username}! I'm thinking of a number between 1 and 100. Can you guess it?"
-        session['message_type'] = "info"
     
-    # Get user statistics
-    best_score = current_user.get_best_score()
-    total_games = current_user.get_total_games()
-    
-    return render_template('index.html',
-                         attempts=session.get('attempts', 0),
-                         message=session.get('message', ''),
-                         message_type=session.get('message_type', 'info'),
-                         game_over=session.get('game_over', False),
-                         best_score=best_score,
-                         total_games=total_games,
-                         current_user=current_user)
+    return render_template('index.html', user=current_user)
 
 @app.route('/guess', methods=['POST'])
 @login_required
 def guess():
+    if session.get('game_over'):
+        return redirect(url_for('game'))
+    
     try:
         user_guess = int(request.form['guess'])
-        target = session['target_number']
-        session['attempts'] += 1
-        
-        if user_guess == target:
-            # Game won - save score to database
-            score = GameScore(
-                user_id=current_user.id,
-                attempts=session['attempts'],
-                target_number=target
-            )
-            db.session.add(score)
-            db.session.commit()
-            
-            # Generate sharing message
-            session['latest_score'] = session['attempts']
-            session['share_message'] = get_achievement_message(current_user, session['attempts'])
-            
-            session['message'] = f"🎉 Congratulations! You guessed it in {session['attempts']} attempts! Score saved!"
-            session['message_type'] = "success"
-            session['game_over'] = True
-        elif user_guess < target:
-            session['message'] = f"Too low! Try a higher number. (Attempt {session['attempts']})"
-            session['message_type'] = "warning"
-        else:
-            session['message'] = f"Too high! Try a lower number. (Attempt {session['attempts']})"
-            session['message_type'] = "warning"
-            
+        if user_guess < 1 or user_guess > 100:
+            flash('Please enter a number between 1 and 100', 'error')
+            return redirect(url_for('game'))
     except ValueError:
-        session['message'] = "Please enter a valid number!"
-        session['message_type'] = "error"
+        flash('Please enter a valid number', 'error')
+        return redirect(url_for('game'))
     
-    return redirect(url_for('index'))
+    session['attempts'] += 1
+    target = session['target_number']
+    
+    if user_guess == target:
+        # Save the game score
+        game_score = GameScore(
+            user_id=current_user.id,
+            attempts=session['attempts'],
+            target_number=target
+        )
+        db.session.add(game_score)
+        db.session.commit()
+        
+        session['game_over'] = True
+        flash(f'Congratulations! You guessed the number {target} in {session["attempts"]} attempts!', 'success')
+        
+        # Check for achievements
+        if session['attempts'] == 1:
+            flash('🎯 Achievement Unlocked: Perfect Shot!', 'achievement')
+        elif session['attempts'] <= 3:
+            flash('⭐ Achievement Unlocked: Sharp Shooter!', 'achievement')
+        elif session['attempts'] <= 5:
+            flash('👍 Achievement Unlocked: Good Guesser!', 'achievement')
+            
+    elif user_guess < target:
+        flash(f'Too low! Try a higher number. Attempts: {session["attempts"]}', 'info')
+    else:
+        flash(f'Too high! Try a lower number. Attempts: {session["attempts"]}', 'info')
+    
+    return redirect(url_for('game'))
 
-@app.route('/reset')
+@app.route('/new_game')
 @login_required
-def reset():
+def new_game():
     session.pop('target_number', None)
     session.pop('attempts', None)
     session.pop('game_over', None)
-    session.pop('message', None)
-    session.pop('message_type', None)
-    return redirect(url_for('index'))
+    flash('New game started! Good luck!', 'info')
+    return redirect(url_for('game'))
 
 @app.route('/leaderboard')
 @login_required
 def leaderboard():
-    # Get top 10 best scores (fewest attempts)
-    top_scores = db.session.query(GameScore, User).join(User).order_by(GameScore.attempts).limit(10).all()
-    
-    # Get user rankings
-    user_best_scores = db.session.query(
-        User.id,
-        User.username,
+    # Get top 10 best scores
+    top_scores = db.session.query(
+        User.username, 
+        User.profile_picture,
         db.func.min(GameScore.attempts).label('best_score'),
         db.func.count(GameScore.id).label('total_games')
-    ).join(GameScore).group_by(User.id).order_by(db.func.min(GameScore.attempts)).all()
+    ).join(GameScore).group_by(User.id).order_by(db.func.min(GameScore.attempts).asc()).limit(10).all()
     
-    return render_template('leaderboard.html', 
-                         top_scores=top_scores,
-                         user_rankings=user_best_scores,
-                         current_user=current_user)
+    return render_template('leaderboard.html', top_scores=top_scores, user=current_user)
 
 @app.route('/profile')
 @login_required
 def profile():
-    # Get user's game history
-    user_scores = GameScore.query.filter_by(user_id=current_user.id).order_by(GameScore.completed_at.desc()).limit(20).all()
+    user_games = GameScore.query.filter_by(user_id=current_user.id).order_by(GameScore.completed_at.desc()).limit(10).all()
+    achievements = current_user.get_achievements()
     
-    # Calculate statistics
-    if user_scores:
-        best_score = min(score.attempts for score in user_scores)
-        avg_score = sum(score.attempts for score in user_scores) / len(user_scores)
+    stats = {
+        'best_score': current_user.get_best_score(),
+        'total_games': current_user.get_total_games()
+    }
+    
+    if user_games:
+        stats['average_score'] = sum(game.attempts for game in user_games) / len(user_games)
     else:
-        best_score = None
-        avg_score = None
+        stats['average_score'] = None
     
-    # Get achievements
-    achievements = get_user_achievements(current_user)
-    
-    return render_template('profile.html',
-                         user_scores=user_scores,
-                         best_score=best_score,
-                         avg_score=avg_score,
-                         total_games=len(user_scores),
+    return render_template('profile.html', 
+                         user=current_user, 
+                         games=user_games, 
                          achievements=achievements,
-                         current_user=current_user)
+                         stats=stats)
 
-@app.route('/share/achievement/<achievement_type>')
+# Sharing functionality
+def generate_share_message(share_type, user, **kwargs):
+    """Generate dynamic sharing messages based on type and user data"""
+    messages = {
+        'best_score': {
+            1: f"🎯 AMAZING! {user.username} guessed the number in just 1 attempt! Perfect shot! 🏆",
+            2: f"🌟 INCREDIBLE! {user.username} nailed it in only 2 attempts! 🎯",
+            3: f"⭐ EXCELLENT! {user.username} conquered the number game in 3 attempts! 🌟",
+            4: f"👏 GREAT JOB! {user.username} solved it in 4 attempts! 🎲",
+            5: f"👍 WELL DONE! {user.username} cracked the code in 5 attempts! 🔢"
+        },
+        'achievement': f"🏆 Achievement Unlocked: {kwargs.get('achievement_name', 'Master Player')}! Best score: {kwargs.get('best_score', 'N/A')} attempts",
+        'total_games': f"🎮 {user.username} has played {kwargs.get('total_games', 0)} games on the Number Guessing Game! Join the fun!",
+        'leaderboard': f"🏆 Check out the Number Guessing Game leaderboard! Can you beat the top players?"
+    }
+    
+    if share_type == 'best_score':
+        score = kwargs.get('score', 6)
+        if score <= 5:
+            message = messages['best_score'].get(score, f"🎯 {user.username} guessed the number in {score} attempts!")
+        else:
+            message = f"� {user.username} is mastering the Number Guessing Game! Latest score: {score} attempts"
+    else:
+        message = messages.get(share_type, f"🎯 {user.username} is playing the Number Guessing Game!")
+    
+    # Add common hashtags and call to action
+    message += f"\n\n🎯 Can you beat this score? Play now: #NumberGuessingGame #GameChallenge #BeatTheScore"
+    
+    return message
+
+@app.route('/share/achievement/<share_type>')
 @login_required
-def share_achievement(achievement_type):
-    """Generate Facebook share URL for achievements"""
-    base_url = request.url_root.rstrip('/')
+def share_achievement(share_type):
+    """Generate sharing URL for different achievement types"""
     
-    if achievement_type == 'best_score':
-        best_score = current_user.get_best_score()
-        if best_score:
-            message = get_achievement_message(current_user, best_score)
-            share_url = generate_facebook_share_url(message, f"{base_url}/leaderboard")
-            return jsonify({'share_url': share_url, 'message': message})
+    # Get user stats
+    best_score = current_user.get_best_score()
+    total_games = current_user.get_total_games()
     
-    elif achievement_type == 'total_games':
-        total_games = current_user.get_total_games()
-        message = f"🎮 {current_user.username} has played {total_games} games on the Number Guessing Game! Join the fun and test your skills!"
-        share_url = generate_facebook_share_url(message, base_url)
-        return jsonify({'share_url': share_url, 'message': message})
+    # Generate message based on share type
+    if share_type == 'best_score' and best_score:
+        message = generate_share_message('best_score', current_user, score=best_score)
+    elif share_type == 'total_games':
+        message = generate_share_message('total_games', current_user, total_games=total_games)
+    elif share_type == 'leaderboard':
+        message = generate_share_message('leaderboard', current_user)
+    else:
+        message = f"🎯 Join {current_user.username} on the Number Guessing Game! #NumberGuessingGame"
     
-    elif achievement_type == 'latest_win':
-        latest_score = GameScore.query.filter_by(user_id=current_user.id).order_by(GameScore.completed_at.desc()).first()
-        if latest_score:
-            message = get_achievement_message(current_user, latest_score.attempts)
-            share_url = generate_facebook_share_url(message, base_url)
-            return jsonify({'share_url': share_url, 'message': message})
+    # Create sharing URL (you can customize this with your actual domain)
+    app_url = request.url_root
+    share_url = f"https://www.facebook.com/sharer/sharer.php?u={urllib.parse.quote(app_url)}&quote={urllib.parse.quote(message)}"
     
-    # Default sharing
-    message = f"🎯 Join {current_user.username} on the Number Guessing Game! Test your logic and compete with friends!"
-    share_url = generate_facebook_share_url(message, base_url)
-    return jsonify({'share_url': share_url, 'message': message})
+    return jsonify({
+        'share_url': share_url,
+        'message': message
+    })
+
+@app.route('/share/game_complete')
+@login_required
+def share_game_complete():
+    """Generate sharing URL after completing a game"""
+    if not session.get('game_over'):
+        return jsonify({'error': 'No completed game to share'}), 400
+    
+    attempts = session.get('attempts', 0)
+    message = generate_share_message('best_score', current_user, score=attempts)
+    
+    app_url = request.url_root
+    share_url = f"https://www.facebook.com/sharer/sharer.php?u={urllib.parse.quote(app_url)}&quote={urllib.parse.quote(message)}"
+    
+    return jsonify({
+        'share_url': share_url,
+        'message': message,
+        'attempts': attempts
+    })
 
 if __name__ == '__main__':
     import os

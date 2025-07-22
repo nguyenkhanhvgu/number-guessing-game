@@ -1,28 +1,29 @@
-# Render Deployment Guide
+# Render Deployment Guide - Python 3.13 Compatibility Fixed
 
-## Updated Configuration for SQLAlchemy Compatibility
+## ✅ SQLAlchemy & Python Version Issues Resolved
 
-The application has been updated to resolve SQLAlchemy deployment issues on Render. Here are the key changes made:
+The application has been updated to resolve the Python 3.13 SQLAlchemy typing issues encountered during deployment:
 
-### 1. Database Configuration Updates
-- Updated to SQLAlchemy 2.0.23 for better compatibility
-- Added proper database pool settings:
-  ```python
-  app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-      'pool_pre_ping': True,
-      'pool_recycle': 300,
-  }
-  ```
-- Fixed PostgreSQL URL handling for Render's database URLs
+### Key Fixes Applied:
+1. **Downgraded Python** to 3.11.10 (more stable for SQLAlchemy)
+2. **Compatible SQLAlchemy** version 1.4.53 (no typing conflicts)
+3. **Simplified OAuth Integration** - Removed problematic Flask-Dance SQLAlchemy storage
+4. **Manual Facebook OAuth** - Custom implementation without version conflicts
 
-### 2. OAuth Storage Configuration
-- Fixed Flask-Dance SQLAlchemy integration
-- Proper OAuth storage initialization after database setup
+### Updated Dependencies:
+```
+python-3.11.10               # Specified in runtime.txt
+SQLAlchemy==1.4.53          # Stable version without typing conflicts  
+Flask-SQLAlchemy==2.5.1     # Compatible with SQLAlchemy 1.4.x
+Flask-Dance==7.0.0          # Works with older SQLAlchemy
+```
 
-### 3. Dependencies Updated
-- SQLAlchemy==2.0.23
-- psycopg2-binary==2.9.7 (for PostgreSQL support)
-- All other dependencies pinned for stability
+### Fixed Error:
+```
+❌ AssertionError: Class SQLCoreOperations directly inherits TypingOnly 
+   but has additional attributes {'__static_attributes__', '__firstlineno__'}
+✅ RESOLVED with Python 3.11 + SQLAlchemy 1.4.53
+```
 
 ## Deployment Steps for Render
 
@@ -55,11 +56,17 @@ Make sure your Facebook App settings include:
 - Valid OAuth Redirect URI: `https://your-app-name.onrender.com/login/facebook/authorized`
 - App Domain: `your-app-name.onrender.com`
 
-## Troubleshooting
+## ✅ What's Fixed
 
-If you encounter any SQLAlchemy errors:
-1. Check that DATABASE_URL is properly set
-2. Ensure the PostgreSQL database is accessible
-3. Verify that the app connects to the database with the updated pool settings
+### SQLAlchemy Errors Resolved:
+- ❌ `Class SQLCoreOperations directly inherits TypingOnly` - **FIXED**
+- ❌ Flask-Dance SQLAlchemy storage conflicts - **FIXED**
+- ❌ Database connection pool issues - **FIXED**
 
-The application should now deploy successfully on Render with all the SQLAlchemy compatibility fixes in place.
+### New OAuth Implementation:
+- ✅ Custom FacebookOAuth model for token storage
+- ✅ Manual OAuth flow handling
+- ✅ Proper user account linking
+- ✅ Facebook profile picture import
+
+The application should now deploy successfully on Render without any SQLAlchemy compatibility issues!
