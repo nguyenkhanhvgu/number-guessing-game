@@ -1,28 +1,31 @@
-# Render Deployment Guide - Python 3.13 Compatibility Fixed
+# Render Deployment Guide - Simplified & Fixed
 
-## ✅ SQLAlchemy & Python Version Issues Resolved
+## ✅ All Deployment Issues Resolved
 
-The application has been updated to resolve the Python 3.13 SQLAlchemy typing issues encountered during deployment:
+The application has been completely fixed for Render deployment:
 
 ### Key Fixes Applied:
-1. **Downgraded Python** to 3.11.10 (more stable for SQLAlchemy)
-2. **Compatible SQLAlchemy** version 1.4.53 (no typing conflicts)
-3. **Simplified OAuth Integration** - Removed problematic Flask-Dance SQLAlchemy storage
-4. **Manual Facebook OAuth** - Custom implementation without version conflicts
+1. **Python Version** - Forced to 3.11.10 in runtime.txt
+2. **Removed Flask-Dance** - Eliminated complex OAuth dependencies causing conflicts
+3. **Fixed Table Conflicts** - Custom table names prevent MetaData conflicts
+4. **Simplified Dependencies** - Only essential packages for core functionality
 
-### Updated Dependencies:
+### Current Dependencies:
 ```
 python-3.11.10               # Specified in runtime.txt
 SQLAlchemy==1.4.53          # Stable version without typing conflicts  
 Flask-SQLAlchemy==2.5.1     # Compatible with SQLAlchemy 1.4.x
-Flask-Dance==7.0.0          # Works with older SQLAlchemy
+Flask==2.3.3                # Core framework
+Flask-Login==0.6.3          # User authentication
 ```
 
-### Fixed Error:
+### Fixed Errors:
 ```
 ❌ AssertionError: Class SQLCoreOperations directly inherits TypingOnly 
-   but has additional attributes {'__static_attributes__', '__firstlineno__'}
-✅ RESOLVED with Python 3.11 + SQLAlchemy 1.4.53
+✅ RESOLVED by removing Flask-Dance and using Python 3.11
+
+❌ Table 'facebook_o_auth' is already defined for this MetaData instance
+✅ RESOLVED by removing duplicate models and using custom table names
 ```
 
 ## Deployment Steps for Render
@@ -44,17 +47,23 @@ Flask-Dance==7.0.0          # Works with older SQLAlchemy
    Set these environment variables in Render:
    ```
    DATABASE_URL=<your-postgresql-database-url>
-   FACEBOOK_OAUTH_CLIENT_ID=<your-facebook-app-id>
-   FACEBOOK_OAUTH_CLIENT_SECRET=<your-facebook-app-secret>
+   SECRET_KEY=<your-secret-key>
    ```
+   
+   Note: Facebook OAuth has been temporarily removed to ensure deployment stability.
 
 5. **Deploy**: Click "Create Web Service" and wait for deployment to complete.
 
-## Facebook OAuth Setup
+## Core Features Available:
+- ✅ User registration and login
+- ✅ Number guessing game with score tracking
+- ✅ Leaderboards and user profiles
+- ✅ Achievement system
+- ✅ Game statistics and history
 
-Make sure your Facebook App settings include:
-- Valid OAuth Redirect URI: `https://your-app-name.onrender.com/login/facebook/authorized`
-- App Domain: `your-app-name.onrender.com`
+## Future Enhancements:
+- Facebook OAuth integration (can be re-added after stable deployment)
+- Social sharing features
 
 ## ✅ What's Fixed
 

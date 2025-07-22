@@ -5,11 +5,11 @@ from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SubmitField
 from wtforms.validators import DataRequired, Length, EqualTo
 from werkzeug.security import generate_password_hash, check_password_hash
-from flask_dance.contrib.facebook import make_facebook_blueprint, facebook
 from datetime import datetime
 import random
 import os
 import urllib.parse
+import requests
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'number-guessing-game-secret-key-2025-enhanced')
@@ -27,17 +27,11 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # Initialize SQLAlchemy
 db = SQLAlchemy(app)
 
-# Facebook OAuth configuration
-facebook_bp = make_facebook_blueprint(
-    client_id=os.environ.get('FACEBOOK_OAUTH_CLIENT_ID'),
-    client_secret=os.environ.get('FACEBOOK_OAUTH_CLIENT_SECRET'),
-    scope="email,public_profile"
-)
-app.register_blueprint(facebook_bp, url_prefix="/login")
-
 # Login manager setup
 login_manager = LoginManager()
-# Login manager setup
+login_manager.init_app(app)
+login_manager.login_view = 'auth'
+login_manager.login_message = 'Please log in to play the game!'
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'auth'
@@ -89,6 +83,8 @@ class User(UserMixin, db.Model):
 
 # Simple OAuth storage model
 class FacebookOAuth(db.Model):
+    __tablename__ = 'facebook_oauth_tokens'
+    
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     facebook_user_id = db.Column(db.String(100), unique=True, nullable=False)
@@ -98,6 +94,9 @@ class FacebookOAuth(db.Model):
 class GameScore(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    attempts = db.Column(db.Integer, nullable=False)
+    target_number = db.Column(db.Integer, nullable=False)
+    completed_at = db.Column(db.DateTime, default=datetime.utcnow)
     attempts = db.Column(db.Integer, nullable=False)
     target_number = db.Column(db.Integer, nullable=False)
     completed_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -191,21 +190,6 @@ def get_user_achievements(user):
     
     return achievements
 
-# Simple OAuth storage model
-class FacebookOAuth(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    facebook_user_id = db.Column(db.String(100), unique=True, nullable=False)
-    token = db.Column(db.Text, nullable=True)
-    user = db.relationship('User', backref='facebook_oauth')
-
-class GameScore(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    attempts = db.Column(db.Integer, nullable=False)
-    target_number = db.Column(db.Integer, nullable=False)
-    completed_at = db.Column(db.DateTime, default=datetime.utcnow)
-
 # User loader for Flask-Login
 @login_manager.user_loader
 def load_user(user_id):
@@ -248,82 +232,6 @@ class RegisterForm(FlaskForm):
     confirm_password = PasswordField('Confirm Password', 
                                    validators=[DataRequired(), EqualTo('password')])
     submit = SubmitField('Register')
-
-# Facebook OAuth login route
-@app.route('/login/facebook')
-def facebook_login():
-    if not facebook.authorized:
-        return redirect(url_for("facebook.login"))
-    
-    # Get Facebook user info
-    resp = facebook.get("/me?fields=id,name,email,picture")
-    if not resp.ok:
-        flash('Failed to fetch user info from Facebook', 'error')
-        return redirect(url_for('auth'))
-    
-    facebook_info = resp.json()
-    facebook_user_id = str(facebook_info["id"])
-    
-    # Check if this Facebook account is already linked
-    oauth_record = FacebookOAuth.query.filter_by(facebook_user_id=facebook_user_id).first()
-    
-    if oauth_record and oauth_record.user:
-        # User exists, log them in
-        login_user(oauth_record.user)
-        flash(f'Welcome back, {oauth_record.user.username}!', 'success')
-        return redirect(url_for('home'))
-    else:
-        # Check if user already exists with this email
-        existing_user = None
-        if facebook_info.get("email"):
-            existing_user = User.query.filter_by(email=facebook_info["email"]).first()
-        
-        if existing_user:
-            # Link the existing account with Facebook
-            existing_user.facebook_id = facebook_user_id
-            if facebook_info.get("email") and not existing_user.email:
-                existing_user.email = facebook_info["email"]
-            if facebook_info.get("picture", {}).get("data", {}).get("url"):
-                existing_user.profile_picture = facebook_info["picture"]["data"]["url"]
-            
-            # Create OAuth record
-            oauth_record = FacebookOAuth(
-                user_id=existing_user.id,
-                facebook_user_id=facebook_user_id
-            )
-            db.session.add(oauth_record)
-            user_to_login = existing_user
-        else:
-            # Create new user
-            username = facebook_info.get("name", f"facebook_user_{facebook_user_id}")
-            # Ensure username is unique
-            base_username = username
-            counter = 1
-            while User.query.filter_by(username=username).first():
-                username = f"{base_username}_{counter}"
-                counter += 1
-            
-            user = User(
-                username=username,
-                email=facebook_info.get("email"),
-                facebook_id=facebook_user_id,
-                profile_picture=facebook_info.get("picture", {}).get("data", {}).get("url")
-            )
-            db.session.add(user)
-            db.session.flush()  # Get the user ID
-            
-            # Create OAuth record
-            oauth_record = FacebookOAuth(
-                user_id=user.id,
-                facebook_user_id=facebook_user_id
-            )
-            db.session.add(oauth_record)
-            user_to_login = user
-
-        db.session.commit()
-        login_user(user_to_login)
-        flash(f'Welcome to Number Guessing Game, {user_to_login.username}!', 'success')
-        return redirect(url_for('home'))
 
 # Routes
 @app.route('/')
